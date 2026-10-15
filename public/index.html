@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hải Đăng Fly - Đặt Vé Máy Bay & Dịch Vụ Hàng Không</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: { DEFAULT: '#0f172a', light: '#1e293b', dark: '#020617' },
+                        gold: { DEFAULT: '#eab308', light: '#fde047' },
+                        accent: { DEFAULT: '#ea580c', hover: '#c2410c' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'glow': '0 0 15px rgba(234, 179, 8, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet CSS & JS cho Bản đồ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* Base & Scrollbar */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            scroll-behavior: smooth; 
+            /* Midnight Deep Navy to Onyx */
+            background: radial-gradient(circle at 50% 0%, #0d1726 0%, #06090e 100%) !important;
+            color: #e2e8f0 !important;
+            background-attachment: fixed;
+        }
+        
+        /* Ambient Glow & Subtle Dot Grid (No circle patterns) */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            /* Quầng sáng mờ ảo phía trên (Ambient Glow) */
+            background: radial-gradient(circle at 50% 10%, rgba(223, 186, 115, 0.12) 0%, transparent 60%),
+                        /* Lưới tọa độ bay (Dot Grid) mờ */
+                        url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23DFBA73' fill-opacity='0.03'/%3E%3C/svg%3E");
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Ambient Glow blur effect */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -10%; left: 20%; width: 60%; height: 40%;
+            background: rgba(223, 186, 115, 0.05);
+            filter: blur(140px);
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        /* 3. Thiết kế thanh Header cao cấp (Dark Glassmorphism) */
+        header.bg-navy, .bg-navy {
+            background: rgba(10, 15, 26, 0.75) !important;
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(223, 186, 115, 0.2) !important;
+        }
+
+        /* 4. Thẻ nội dung & Cột Tóm tắt hành trình (Luxury Cards) */
+        .bg-white, .bg-slate-50, .glass-effect, .bg-blue-50, .bg-yellow-50\/10, .bg-slate-50\/50, .bg-emerald-50, .bg-slate-100 {
+            background: rgba(15, 23, 42, 0.65) !important;
+            backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(223, 186, 115, 0.25) !important;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7) !important;
+            color: #f8fafc !important;
+            border-radius: 16px !important;
+        }
+
+        /* Thẻ chuyến bay hover effect (Flight Cards) */
+        #flight-results-container > div:hover {
+            transform: translateY(-2px);
+            border-color: rgba(223, 186, 115, 0.5) !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 20px rgba(223, 186, 115, 0.1) !important;
+            transition: all 0.3s ease;
+        }
+        
+        /* Text Color Overrides */
+        .text-navy, .text-slate-800, .text-slate-700, .text-slate-600 { color: #f8fafc !important; }
+        .text-slate-500, .text-slate-400 { color: #cbd5e1 !important; }
+        
+        /* Nav links */
+        nav .nav-btn { color: #cbd5e1 !important; border-bottom: 2px solid transparent; }
+        nav .nav-btn:hover, nav .nav-btn[style*="border-color"] {
+            color: #DFBA73 !important;
+            border-bottom: 2px solid #DFBA73 !important;
+            text-shadow: 0 0 10px rgba(223, 186, 115, 0.3);
+        }
+
+        /* Highlight borders on checked */
+        .has-\[\:checked\]\:border-navy:has(:checked), .has-\[\:checked\]\:border-gold:has(:checked) {
+            border: 1px solid #DFBA73 !important;
+            background: rgba(223, 186, 115, 0.1) !important;
+            box-shadow: 0 0 15px rgba(223, 186, 115, 0.2) !important;
+        }
+
+        /* Inputs & Dropdowns */
+        input, select {
+            background: rgba(10, 15, 26, 0.8) !important;
+            color: #e2e8f0 !important;
+            border: 1px solid rgba(223, 186, 115, 0.3) !important;
+        }
+        input:focus, select:focus {
+            border-color: #DFBA73 !important;
+            box-shadow: 0 0 0 1px rgba(223, 186, 115, 0.4) !important;
+            outline: none;
+        }
+
+        /* 5. Nút tương tác (CTA Buttons) */
+        .bg-accent {
+            background: linear-gradient(135deg, #DFBA73 0%, #C5A059 100%) !important;
+            color: #020617 !important; /* Đen tuyền đậm nét */
+            font-weight: 800 !important;
+            letter-spacing: 0.05em; /* tracking-wide */
+            border: none !important;
+            box-shadow: 0 8px 25px rgba(197, 160, 89, 0.3) !important;
+            text-shadow: none !important;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-accent::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-20deg);
+            transition: all 0.6s ease;
+        }
+        .bg-accent:hover::after {
+            left: 150%;
+        }
+        .bg-accent:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(197, 160, 89, 0.4) !important;
+        }
+
+        .text-accent, .text-gold { color: #DFBA73 !important; }
+        
+        /* Cột Tóm tắt hành trình - Tổng tiền */
+        #cart-total-price { color: #DFBA73 !important; font-weight: bold; }
+
+        /* Scrollbar styles */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #06090e; }
+        ::-webkit-scrollbar-thumb { background: rgba(223, 186, 115, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #DFBA73; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .sticky-sidebar { position: sticky; top: 5.5rem; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased relative">
+
+    <!-- Header -->
+    <header class="bg-navy text-white sticky top-0 z-50 shadow-md">
+        <div class="container mx-auto px-4 lg:px-8 py-4 flex justify-between items-center">
+            <!-- Logo -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('booking')">
+                <div class="relative w-10 h-10 flex items-center justify-center bg-gold/10 rounded-full border border-gold/30">
+                    <i class="fa-solid fa-tower-observation text-gold text-xl absolute"></i>
+                    <i class="fa-solid fa-plane text-white text-xs absolute -top-1 -right-1 bg-navy rounded-full p-1 rotate-45"></i>
+                </div>
+                <span class="text-2xl font-bold tracking-wide">Hải Đăng <span class="text-gold">Fly</span></span>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="hidden md:flex gap-8 font-medium">
+                <button onclick="switchView('booking')" class="nav-btn text-gold border-b-2 border-gold pb-1 transition-colors" data-target="booking">Trang chủ</button>
+                <button onclick="switchView('promotions')" class="nav-btn hover:text-gold transition-colors pb-1 border-b-2 border-transparent" data-target="promotions">Khuyến mãi</button>
+                <button onclick="switchView('explore')" class="nav-btn hover:text-gold transition-colors pb-1 border-b-2 border-transparent" data-target="explore">Khám phá</button>
+                <button onclick="switchView('services')" class="nav-btn hover:text-gold transition-colors pb-1 border-b-2 border-transparent" data-target="services">Dịch vụ</button>
+            </nav>
+            
+            <!-- Auth / User -->
+            <div id="auth-buttons" class="flex gap-4">
+                <button onclick="toggleAuthModal(true, 'login')" class="text-sm font-medium hover:text-gold transition-colors hidden sm:block">Đăng nhập</button>
+                <button onclick="toggleAuthModal(true, 'register')" class="bg-gold text-navy px-5 py-2 rounded-full text-sm font-bold hover:bg-yellow-400 transition-colors shadow-glow">Đăng ký</button>
+            </div>
+
+            <div id="user-menu" class="hidden relative group cursor-pointer flex items-center gap-2">
+                <div class="w-9 h-9 bg-gold rounded-full flex items-center justify-center font-bold text-navy shadow-sm" id="user-avatar">A</div>
+                <span class="font-medium hidden sm:block" id="user-name-display">Người dùng</span>
+                <i class="fa-solid fa-chevron-down text-xs"></i>
+                <!-- Dropdown -->
+                <div class="absolute top-full right-0 mt-2 w-48 bg-white text-slate-700 rounded-xl shadow-xl border border-slate-100 hidden group-hover:block z-50 overflow-hidden">
+                    <a href="#" class="block px-4 py-3 hover:bg-slate-50 text-sm font-medium border-b border-slate-100"><i class="fa-regular fa-user mr-2 text-slate-400"></i>Tài khoản của tôi</a>
+                    <a href="#" class="block px-4 py-3 hover:bg-slate-50 text-sm font-medium border-b border-slate-100"><i class="fa-solid fa-ticket-simple mr-2 text-slate-400"></i>Lịch sử đặt vé</a>
+                    <button onclick="logout()" class="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm font-medium text-red-500"><i class="fa-solid fa-arrow-right-from-bracket mr-2 text-red-400"></i>Đăng xuất</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============================================== -->
+    <!-- VIEW 1: TRANG CHỦ & ĐẶT VÉ (BOOKING VIEW)      -->
+    <!-- ============================================== -->
+    <main id="view-booking" class="block">
+        
+        <!-- Hero Section -->
+        <section class="relative h-[500px] flex items-center justify-center bg-navy-dark overflow-hidden">
+            <div class="absolute inset-0 z-0">
+                <!-- Ảnh Private Jet Luxury -->
+                <img src="https://images.unsplash.com/photo-1540962351504-03099e0a754b?q=80&w=2074&auto=format&fit=crop" alt="Luxury Flight" class="w-full h-full object-cover opacity-80">
+                <!-- Overlay mờ ảo sang trọng: đen đậm ở trên và dưới để khớp với body -->
+                <div class="absolute inset-0 bg-gradient-to-b from-[#050505]/90 via-transparent to-[#050505]"></div>
+            </div>
+            <div class="relative z-10 text-center text-white px-4 -mt-24">
+                <h1 class="text-4xl md:text-5xl font-bold mb-4 drop-shadow-xl tracking-wide">Bay Xa Cùng <span class="text-gold">Hải Đăng Fly</span></h1>
+                <p class="text-lg md:text-xl text-slate-100 max-w-2xl mx-auto font-light drop-shadow-lg">Trải nghiệm dịch vụ bay đẳng cấp, tiện lợi và an toàn cho mọi hành trình.</p>
+            </div>
+        </section>
+
+        <!-- Search Widget (Floating) -->
+        <section class="container mx-auto px-4 lg:px-8 relative z-40 -mt-32 mb-8">
+            <div class="glass-effect rounded-2xl shadow-soft p-6 md:p-8 border border-white/50 backdrop-blur-xl">
+                <!-- Search Inputs Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end relative">
+                    
+                    <!-- Điểm đi -->
+                    <div class="relative lg:col-span-1" id="from-container">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Điểm đi</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-location-dot absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="input-from" value="Hồ Chí Minh (SGN)" class="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition-all shadow-sm cursor-pointer" onclick="toggleDropdown('from-dropdown')" readonly>
+                        </div>
+                        <div id="from-dropdown" class="hidden absolute top-full left-0 w-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-50">
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('from', 'Hồ Chí Minh (SGN)')"><span class="font-bold">SGN</span> - Hồ Chí Minh</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('from', 'Hà Nội (HAN)')"><span class="font-bold">HAN</span> - Hà Nội</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('from', 'Đà Nẵng (DAD)')"><span class="font-bold">DAD</span> - Đà Nẵng</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('from', 'Phú Quốc (PQC)')"><span class="font-bold">PQC</span> - Phú Quốc</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('from', 'Nha Trang (CXR)')"><span class="font-bold">CXR</span> - Nha Trang</div>
+                        </div>
+                    </div>
+
+                    <!-- Điểm đến -->
+                    <div class="relative lg:col-span-1" id="to-container">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Điểm đến</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-plane-arrival absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="input-to" value="Hà Nội (HAN)" class="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent transition-all shadow-sm cursor-pointer" onclick="toggleDropdown('to-dropdown')" readonly>
+                        </div>
+                        <div id="to-dropdown" class="hidden absolute top-full left-0 w-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 p-2 z-50">
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('to', 'Hà Nội (HAN)')"><span class="font-bold">HAN</span> - Hà Nội</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('to', 'Hồ Chí Minh (SGN)')"><span class="font-bold">SGN</span> - Hồ Chí Minh</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('to', 'Đà Nẵng (DAD)')"><span class="font-bold">DAD</span> - Đà Nẵng</div>
+                            <div class="px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm" onclick="selectAirport('to', 'Đà Lạt (DLI)')"><span class="font-bold">DLI</span> - Đà Lạt</div>
+                        </div>
+                    </div>
+
+                    <!-- Ngày đi & Ngày về -->
+                    <div class="relative lg:col-span-1">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Ngày đi</label>
+                        <div class="relative">
+                            <input type="date" value="2023-10-24" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-navy transition-all shadow-sm">
+                        </div>
+                    </div>
+                    <div class="relative lg:col-span-1" id="returnDateContainer">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Ngày về</label>
+                        <div class="relative">
+                            <input type="date" value="2023-10-28" class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-navy transition-all shadow-sm">
+                        </div>
+                    </div>
+
+                    <!-- Hành khách -->
+                    <div class="relative lg:col-span-1" id="passengerContainer">
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hành khách</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user-group absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <div class="w-full bg-white border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm font-bold cursor-pointer flex justify-between items-center shadow-sm" onclick="toggleDropdown('passengerDropdown')">
+                                <span id="passengerSummary" class="truncate">1 Người lớn</span>
+                                <i class="fa-solid fa-chevron-down text-xs ml-1"></i>
+                            </div>
+                            
+                            <!-- Popover Hành khách -->
+                            <div id="passengerDropdown" class="hidden absolute top-full right-0 lg:left-0 lg:right-auto mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 p-5 z-50 w-72">
+                                <!-- Người lớn -->
+                                <div class="flex justify-between items-center mb-5">
+                                    <div><p class="font-bold text-sm text-navy">Người lớn</p><p class="text-[11px] text-slate-500">Từ 12 tuổi trở lên</p></div>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" onclick="updatePassCount('adults', -1)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-lg flex items-center justify-center font-bold text-slate-600">-</button>
+                                        <span class="text-sm font-bold w-4 text-center text-navy" id="count-adults">1</span>
+                                        <button type="button" onclick="updatePassCount('adults', 1)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-lg flex items-center justify-center font-bold text-slate-600">+</button>
+                                    </div>
+                                </div>
+                                <!-- Trẻ em -->
+                                <div class="flex justify-between items-center mb-5">
+                                    <div><p class="font-bold text-sm text-navy">Trẻ em</p><p class="text-[11px] text-slate-500">Từ 2 - 11 tuổi</p></div>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" onclick="updatePassCount('children', -1)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-lg flex items-center justify-center font-bold text-slate-600">-</button>
+                                        <span class="text-sm font-bold w-4 text-center text-navy" id="count-children">0</span>
+                                        <button type="button" onclick="updatePassCount('children', 1)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-lg flex items-center justify-center font-bold text-slate-600">+</button>
+                                    </div>
+                                </div>
+                                <!-- Em bé -->
+                                <div class="flex justify-between items-center mb-6">
+                                    <div><p class="font-bold text-sm text-navy">Em bé</p><p class="text-[11px] text-slate-500">Dưới 2 tuổi</p></div>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" onclick="updatePassCount('infants', -1)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-lg flex items-center justify-center font-bold text-slate-600">-</button>
+                                        <span class="text-sm font-bold w-4 text-center text-navy" id="count-infants">0</span>
+                                        <button type="button" onclick="updatePassCount('infants', 1)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-lg flex items-center justify-center font-bold text-slate-600">+</button>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="confirmPassengers()" class="w-full bg-navy text-white font-bold py-2.5 rounded-lg hover:bg-navy-light shadow-md transition-colors">Xác nhận</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CTA Button -->
+                <div class="mt-6 flex justify-end">
+                    <button onclick="searchFlights()" class="bg-accent hover:bg-accent-hover text-white px-8 py-3.5 rounded-xl font-bold shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2 transform hover:-translate-y-0.5 w-full md:w-auto justify-center">
+                        <i class="fa-solid fa-magnifying-glass"></i> TÌM KIẾM CHUYẾN BAY
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Layout (3 Columns for Desktop) -->
+        <div class="container mx-auto px-4 lg:px-8 pb-20">
+            <div class="flex flex-col lg:flex-row gap-6 items-start">
+                
+                <!-- CỘT 1: BỘ LỌC (Filters) - 25% -->
+                <aside class="w-full lg:w-1/4 xl:w-1/5 sticky-sidebar z-10 hidden lg:block">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-navy flex items-center gap-2"><i class="fa-solid fa-filter text-slate-400"></i> Bộ lọc vé</h3>
+                            <button class="text-xs text-accent hover:underline font-medium">Xóa lọc</button>
+                        </div>
+                        <div class="mb-5 border-t border-slate-100 pt-4">
+                            <h4 class="text-sm font-bold text-slate-700 mb-3">Giờ cất cánh</h4>
+                            <div class="space-y-3 text-sm text-slate-600">
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-navy"><input type="checkbox" class="accent-navy w-4 h-4 rounded" checked> <i class="fa-solid fa-sun text-gold w-4"></i> Sáng</label>
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-navy"><input type="checkbox" class="accent-navy w-4 h-4 rounded"> <i class="fa-solid fa-cloud-sun text-orange-400 w-4"></i> Trưa</label>
+                                <label class="flex items-center gap-2 cursor-pointer hover:text-navy"><input type="checkbox" class="accent-navy w-4 h-4 rounded"> <i class="fa-solid fa-moon text-indigo-400 w-4"></i> Tối</label>
+                            </div>
+                        </div>
+                        <div class="mb-5 border-t border-slate-100 pt-4">
+                            <h4 class="text-sm font-bold text-slate-700 mb-3">Hãng hàng không</h4>
+                            <div class="space-y-3 text-sm text-slate-600">
+                                <label class="flex items-center justify-between cursor-pointer group"><span class="flex items-center gap-2 group-hover:text-navy"><input type="checkbox" class="accent-navy w-4 h-4 rounded" checked> VN Airlines</span><span class="text-xs text-slate-400 font-medium">1,250K</span></label>
+                                <label class="flex items-center justify-between cursor-pointer group"><span class="flex items-center gap-2 group-hover:text-navy"><input type="checkbox" class="accent-navy w-4 h-4 rounded" checked> Bamboo</span><span class="text-xs text-slate-400 font-medium">1,150K</span></label>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- CỘT 2: KẾT QUẢ & BOOKING FORM - ~50% -->
+                <div class="w-full lg:flex-1" id="search-results-area">
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-4 gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-navy flex items-center gap-2" id="result-title">SGN <i class="fa-solid fa-arrow-right text-[16px] text-slate-400"></i> HAN</h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-slate-600">Sắp xếp:</span>
+                            <select class="bg-white border border-slate-200 rounded-lg text-sm px-3 py-2 font-medium focus:ring-1 focus:ring-navy focus:outline-none cursor-pointer shadow-sm">
+                                <option>Giá rẻ nhất</option>
+                                <option>Thời gian bay ngắn nhất</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Bảng Lịch So Sánh Giá Rẻ (7 days) -->
+                    <div class="flex overflow-x-auto bg-white border border-slate-200 rounded-xl mb-6 text-center text-sm shadow-sm hide-scrollbar">
+                        <div class="min-w-[70px] flex-1 py-3 px-1 border-r border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <p class="text-slate-500 text-[11px] md:text-xs mb-1">T7, 21/10</p><p class="font-semibold text-slate-700">1,500K</p>
+                        </div>
+                        <div class="min-w-[70px] flex-1 py-3 px-1 border-r border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <p class="text-slate-500 text-[11px] md:text-xs mb-1">CN, 22/10</p><p class="font-semibold text-slate-700">1,450K</p>
+                        </div>
+                        <div class="min-w-[70px] flex-1 py-3 px-1 border-r border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <p class="text-slate-500 text-[11px] md:text-xs mb-1">T2, 23/10</p><p class="font-semibold text-slate-700">1,250K</p>
+                        </div>
+                        <div class="min-w-[70px] flex-1 py-3 px-1 bg-navy text-white cursor-pointer relative shadow-inner">
+                            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-gold rounded-b-md"></div>
+                            <p class="text-slate-300 text-[11px] md:text-xs mb-1">T3, 24/10</p><p class="font-bold text-gold">1,150K</p>
+                        </div>
+                        <div class="min-w-[70px] flex-1 py-3 px-1 border-l border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <p class="text-slate-500 text-[11px] md:text-xs mb-1">T4, 25/10</p><p class="font-bold text-emerald-600">890K</p>
+                        </div>
+                        <div class="min-w-[70px] flex-1 py-3 px-1 border-l border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <p class="text-slate-500 text-[11px] md:text-xs mb-1">T5, 26/10</p><p class="font-semibold text-slate-700">1,300K</p>
+                        </div>
+                        <div class="min-w-[70px] flex-1 py-3 px-1 border-l border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                            <p class="text-slate-500 text-[11px] md:text-xs mb-1">T6, 27/10</p><p class="font-semibold text-slate-700">1,200K</p>
+                        </div>
+                    </div>
+
+                    <!-- Flight Cards List -->
+                    <div class="space-y-5 transition-opacity duration-300" id="flight-results-container">
+                        
+                        <!-- Flight Card 1 (Vietnam Airlines) -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-soft transition-shadow">
+                            <div class="flex flex-col md:flex-row gap-6">
+                                <div class="md:w-5/12 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 pb-4 md:pb-0 md:pr-6">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs border border-blue-200">VN</div>
+                                        <div><p class="font-bold text-sm text-navy">Vietnam Airlines</p><p class="text-xs text-slate-500 font-medium">VN-245 • Airbus A321</p></div>
+                                    </div>
+                                    <div class="flex flex-col gap-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="text-center"><p class="text-xl font-bold text-navy">08:00</p><p class="text-xs text-slate-500 font-bold flight-from-label">SGN</p></div>
+                                            <div class="flex-1 px-4 flex flex-col items-center">
+                                                <p class="text-xs text-slate-400 mb-1 font-medium">2h 10m</p>
+                                                <div class="w-full h-px bg-slate-300 relative"><i class="fa-solid fa-plane absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400 text-sm"></i></div>
+                                                <p class="text-[10px] text-emerald-600 mt-1 font-bold bg-emerald-50 px-2 py-0.5 rounded">Bay thẳng</p>
+                                            </div>
+                                            <div class="text-center"><p class="text-xl font-bold text-navy">10:10</p><p class="text-xs text-slate-500 font-bold flight-to-label">HAN</p></div>
+                                        </div>
+                                        <button type="button" onclick="openFlightModal()" class="text-[11px] text-[#DFBA73] hover:text-[#C5A059] font-medium text-left hover:underline w-fit">Chi tiết hành trình & điều kiện vé <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i></button>
+                                    </div>
+                                </div>
+                                <div class="md:w-7/12 grid grid-cols-2 gap-3">
+                                    <!-- Phổ Thông -->
+                                    <label class="border border-slate-200 rounded-lg p-3 cursor-pointer hover:border-navy transition-colors relative group block bg-slate-50/50 has-[:checked]:border-navy has-[:checked]:bg-blue-50/20 has-[:checked]:ring-1 has-[:checked]:ring-navy">
+                                        <input type="radio" name="flight_select" class="absolute right-3 top-3 w-4 h-4 text-navy focus:ring-navy accent-navy" 
+                                            data-airline="Vietnam Airlines" data-flight="VN-245" data-time="08:00 - 10:10" data-class="Phổ thông" data-price="1250000" onchange="updateCart()">
+                                        <p class="text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Khoang Phổ Thông</p>
+                                        <p class="text-lg font-bold text-accent mb-2">1,250,000 <span class="text-[10px] text-slate-500 font-normal">đ</span></p>
+                                        <ul class="text-[11px] text-slate-600 space-y-1.5">
+                                            <li class="flex items-center gap-1.5"><i class="fa-solid fa-suitcase-rolling w-3 text-slate-400"></i> 7kg xách tay</li>
+                                        </ul>
+                                    </label>
+                                    <!-- Thương Gia -->
+                                    <label class="border border-slate-200 rounded-lg p-3 cursor-pointer transition-colors relative group block shadow-sm bg-yellow-50/10 hover:border-gold has-[:checked]:border-gold has-[:checked]:bg-yellow-50/30 has-[:checked]:ring-2 has-[:checked]:ring-gold">
+                                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-gold to-yellow-500 text-navy text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm"><i class="fa-solid fa-crown text-[8px] mr-1"></i>HẠNG NHẤT</div>
+                                        <input type="radio" name="flight_select" class="absolute right-3 top-3 w-4 h-4 text-gold focus:ring-gold accent-gold" 
+                                            data-airline="Vietnam Airlines" data-flight="VN-245" data-time="08:00 - 10:10" data-class="Thương gia" data-price="3500000" onchange="updateCart()">
+                                        <p class="text-xs font-bold text-gold uppercase mb-1 tracking-wider mt-1">Khoang Thương Gia</p>
+                                        <p class="text-lg font-bold text-accent mb-2">3,500,000 <span class="text-[10px] text-slate-500 font-normal">đ</span></p>
+                                        <ul class="text-[11px] text-navy font-medium space-y-1.5">
+                                            <li class="flex items-center gap-1.5"><i class="fa-solid fa-couch w-3 text-gold"></i> VIP Lounge</li>
+                                        </ul>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Flight Card 2 (Bamboo Airways) -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-soft transition-shadow">
+                            <div class="flex flex-col md:flex-row gap-6">
+                                <div class="md:w-5/12 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200 pb-4 md:pb-0 md:pr-6">
+                                    <div class="flex items-center gap-3 mb-4">
+                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-xs border border-green-200">QH</div>
+                                        <div><p class="font-bold text-sm text-navy">Bamboo Airways</p><p class="text-xs text-slate-500 font-medium">QH-112 • Boeing 787</p></div>
+                                    </div>
+                                    <div class="flex flex-col gap-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="text-center"><p class="text-xl font-bold text-navy">10:30</p><p class="text-xs text-slate-500 font-bold flight-from-label">SGN</p></div>
+                                            <div class="flex-1 px-4 flex flex-col items-center">
+                                                <p class="text-xs text-slate-400 mb-1 font-medium">2h 15m</p>
+                                                <div class="w-full h-px bg-slate-300 relative"><i class="fa-solid fa-plane absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-400 text-sm"></i></div>
+                                                <p class="text-[10px] text-emerald-600 mt-1 font-bold bg-emerald-50 px-2 py-0.5 rounded">Bay thẳng</p>
+                                            </div>
+                                            <div class="text-center"><p class="text-xl font-bold text-navy">12:45</p><p class="text-xs text-slate-500 font-bold flight-to-label">HAN</p></div>
+                                        </div>
+                                        <button type="button" onclick="openFlightModal()" class="text-[11px] text-[#DFBA73] hover:text-[#C5A059] font-medium text-left hover:underline w-fit">Chi tiết hành trình & điều kiện vé <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i></button>
+                                    </div>
+                                </div>
+                                <div class="md:w-7/12 grid grid-cols-2 gap-3">
+                                    <label class="border border-slate-200 rounded-lg p-3 cursor-pointer hover:border-navy transition-colors relative block group bg-slate-50/50 has-[:checked]:border-navy has-[:checked]:bg-blue-50/20 has-[:checked]:ring-1 has-[:checked]:ring-navy">
+                                        <input type="radio" name="flight_select" class="absolute right-3 top-3 w-4 h-4 text-navy focus:ring-navy accent-navy" checked
+                                            data-airline="Bamboo Airways" data-flight="QH-112" data-time="10:30 - 12:45" data-class="Phổ thông" data-price="1150000" onchange="updateCart()">
+                                        <p class="text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Khoang Phổ Thông</p>
+                                        <p class="text-lg font-bold text-accent mb-2">1,150,000 <span class="text-[10px] text-slate-500 font-normal">đ</span></p>
+                                        <ul class="text-[11px] text-slate-600 space-y-1.5">
+                                            <li class="flex items-center gap-1.5"><i class="fa-solid fa-suitcase-rolling w-3 text-slate-400"></i> 7kg xách tay</li>
+                                        </ul>
+                                    </label>
+                                    <label class="border border-slate-200 rounded-lg p-3 cursor-pointer transition-colors relative group block shadow-sm bg-yellow-50/10 hover:border-gold has-[:checked]:border-gold has-[:checked]:bg-yellow-50/30 has-[:checked]:ring-2 has-[:checked]:ring-gold">
+                                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-navy text-white text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm">BEST VALUE</div>
+                                        <input type="radio" name="flight_select" class="absolute right-3 top-3 w-4 h-4 text-gold focus:ring-gold accent-gold"
+                                            data-airline="Bamboo Airways" data-flight="QH-112" data-time="10:30 - 12:45" data-class="Thương gia" data-price="3200000" onchange="updateCart()">
+                                        <p class="text-xs font-bold text-navy uppercase mb-1 tracking-wider mt-1">Khoang Thương Gia</p>
+                                        <p class="text-lg font-bold text-accent mb-2">3,200,000 <span class="text-[10px] text-slate-500 font-normal">đ</span></p>
+                                        <ul class="text-[11px] text-navy font-medium space-y-1.5">
+                                            <li class="flex items-center gap-1.5"><i class="fa-solid fa-suitcase w-3 text-navy"></i> 40kg ký gửi</li>
+                                        </ul>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Booking Form (Form Thông tin & Add-ons) -->
+                    <div class="mt-10 bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden" id="booking-form-section">
+                        <div class="bg-navy px-6 py-4 flex items-center gap-3">
+                            <i class="fa-solid fa-shield-check text-gold text-xl"></i>
+                            <h3 class="text-lg font-bold text-white">Hoàn tất đặt vé an toàn</h3>
+                        </div>
+                        <div class="p-6 md:p-8">
+                            <form>
+                                <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                                    <span class="bg-gold text-navy w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs">1</span>
+                                    <h4 class="font-bold text-navy text-base">Thông tin liên hệ & Hành khách</h4>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div><label class="block text-xs font-semibold text-slate-600 mb-1.5">Họ và Tên người đặt *</label><input type="text" id="buyer-name" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="NGUYEN VAN A"></div>
+                                    <div><label class="block text-xs font-semibold text-slate-600 mb-1.5">Số điện thoại *</label><input type="tel" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="090 123 4567"></div>
+                                </div>
+                                <p class="text-xs text-slate-500 italic mb-4">* Danh sách hành khách chi tiết sẽ được điền ở bước xuất vé.</p>
+
+                                <!-- Optional Checkboxes (VAT & SMS) -->
+                                <div class="space-y-3 mb-8">
+                                    <label class="flex items-start gap-2 cursor-pointer group">
+                                        <input type="checkbox" id="check-sms" class="mt-0.5 accent-navy w-4 h-4 rounded border-slate-300">
+                                        <span class="text-sm font-medium text-slate-700 group-hover:text-navy">Gửi thông tin vé & cập nhật giờ bay qua Zalo/SMS miễn phí</span>
+                                    </label>
+                                    <label class="flex items-start gap-2 cursor-pointer group">
+                                        <input type="checkbox" id="check-vat" class="mt-0.5 accent-navy w-4 h-4 rounded border-slate-300" onchange="toggleVATForm()">
+                                        <span class="text-sm font-medium text-slate-700 group-hover:text-navy">Yêu cầu xuất hóa đơn điện tử GTGT (VAT)</span>
+                                    </label>
+                                    <!-- Hidden VAT Form -->
+                                    <div id="vat-form" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 mt-2">
+                                        <div class="md:col-span-2"><label class="block text-xs font-semibold text-slate-600 mb-1">Tên công ty *</label><input type="text" class="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-navy"></div>
+                                        <div><label class="block text-xs font-semibold text-slate-600 mb-1">Mã số thuế *</label><input type="text" class="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-navy"></div>
+                                        <div class="md:col-span-2"><label class="block text-xs font-semibold text-slate-600 mb-1">Địa chỉ công ty *</label><input type="text" class="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-1 focus:ring-navy"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Add-ons Chi tiết -->
+                                <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2 mt-2">
+                                    <span class="bg-gold text-navy w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs">2</span>
+                                    <h4 class="font-bold text-navy text-base">Dịch vụ bổ sung (Tùy chọn)</h4>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:border-navy transition-colors">
+                                        <p class="font-bold text-sm text-navy mb-2"><i class="fa-solid fa-suitcase-rolling text-gold w-4"></i> Hành lý ký gửi</p>
+                                        <select id="addon-baggage" class="w-full bg-white border border-slate-200 rounded-lg text-xs py-2 px-2 focus:ring-1 focus:ring-navy cursor-pointer" onchange="updateCart()">
+                                            <option value="0">Mua thêm hành lý</option>
+                                            <option value="250000">15kg (+ 250,000 đ)</option>
+                                            <option value="350000">23kg (+ 350,000 đ)</option>
+                                        </select>
+                                    </div>
+                                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:border-navy transition-colors">
+                                        <p class="font-bold text-sm text-navy mb-2"><i class="fa-solid fa-chair text-gold w-4"></i> Chọn chỗ ngồi</p>
+                                        <select id="addon-seat" class="w-full bg-white border border-slate-200 rounded-lg text-xs py-2 px-2 focus:ring-1 focus:ring-navy cursor-pointer" onchange="updateCart()">
+                                            <option value="0">Để hệ thống xếp</option>
+                                            <option value="50000">Cạnh cửa sổ (+ 50,000 đ)</option>
+                                            <option value="50000">Lối đi (+ 50,000 đ)</option>
+                                        </select>
+                                    </div>
+                                    <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:border-navy transition-colors flex flex-col justify-between cursor-pointer" onclick="document.getElementById('addon-insurance').click()">
+                                        <label class="flex items-start gap-3 cursor-pointer h-full pointer-events-none">
+                                            <input type="checkbox" id="addon-insurance" class="accent-navy mt-1 w-4 h-4 pointer-events-auto" onchange="updateCart()">
+                                            <div>
+                                                <p class="font-bold text-sm text-navy mb-1"><i class="fa-solid fa-shield-halved text-gold w-4"></i> Bảo hiểm trọn gói</p>
+                                                <p class="text-accent font-bold text-sm">+ 99,000 đ</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Methods -->
+                                <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2 mt-2">
+                                    <span class="bg-gold text-navy w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs">3</span>
+                                    <h4 class="font-bold text-navy text-base">Phương thức thanh toán</h4>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <label class="border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors relative shadow-sm hover:border-navy has-[:checked]:border-navy has-[:checked]:bg-blue-50/20 has-[:checked]:ring-1 has-[:checked]:ring-navy">
+                                        <input type="radio" name="payment" value="vietqr" class="absolute top-3 right-3 accent-navy w-4 h-4" checked>
+                                        <i class="fa-solid fa-qrcode text-3xl text-navy"></i>
+                                        <span class="text-xs font-bold text-navy text-center mt-1">VietQR<br><span class="text-[10px] text-slate-500 font-normal">Quét mã QR</span></span>
+                                    </label>
+                                    <label class="border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors relative shadow-sm hover:border-navy has-[:checked]:border-navy has-[:checked]:bg-blue-50/20 has-[:checked]:ring-1 has-[:checked]:ring-navy">
+                                        <input type="radio" name="payment" value="visa" class="absolute top-3 right-3 accent-navy w-4 h-4">
+                                        <div class="flex gap-1 text-2xl text-slate-700"><i class="fa-brands fa-cc-visa text-blue-800"></i><i class="fa-brands fa-cc-mastercard text-orange-600"></i></div>
+                                        <span class="text-xs font-bold text-navy text-center mt-1">Thẻ Quốc Tế<br><span class="text-[10px] text-slate-500 font-normal">Visa / Master</span></span>
+                                    </label>
+                                    <label class="border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors relative shadow-sm hover:border-navy has-[:checked]:border-navy has-[:checked]:bg-blue-50/20 has-[:checked]:ring-1 has-[:checked]:ring-navy">
+                                        <input type="radio" name="payment" value="momo" class="absolute top-3 right-3 accent-navy w-4 h-4">
+                                        <div class="w-8 h-8 rounded-lg bg-[#a50064] text-white flex items-center justify-center font-bold text-[10px]">MoMo</div>
+                                        <span class="text-xs font-bold text-navy text-center mt-1">Ví MoMo<br><span class="text-[10px] text-slate-500 font-normal">Mở app MoMo</span></span>
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CỘT 3: TÓM TẮT GIỎ HÀNG (Cart Sidebar) - ~25% -->
+                <div class="w-full lg:w-[320px] xl:w-[350px] shrink-0 mt-8 lg:mt-0 sticky-sidebar z-20">
+                    <div class="bg-navy rounded-2xl shadow-xl overflow-hidden border border-navy-light relative">
+                        <!-- Bộ đếm ngược giữ chỗ -->
+                        <div class="bg-gradient-to-r from-[#DFBA73] to-[#C5A059] px-4 py-2 text-center text-[11px] font-bold text-slate-900 shadow-sm flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-clock"></i>
+                            <span>Giá vé và chỗ ngồi đang được giữ trong <span id="reservation-timer" class="text-sm ml-1 font-black">10:00</span> phút</span>
+                        </div>
+
+                        <div class="p-5 border-b border-white/10 relative overflow-hidden bg-transparent">
+                            <i class="fa-solid fa-plane text-6xl absolute -right-4 -bottom-4 text-white opacity-5 -rotate-45 z-0"></i>
+                            <h3 class="text-lg font-bold relative z-10 text-white flex items-center gap-2"><i class="fa-solid fa-receipt text-gold"></i> Tóm tắt hành trình</h3>
+                        </div>
+                        
+                        <div class="p-5 border-b border-slate-700/60 relative z-10">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="text-xl font-bold text-white"><span id="cart-from">SGN</span> <span class="text-[11px] font-normal text-slate-400 block mt-0.5" id="cart-time-depart">10:30</span></div>
+                                <div class="flex-1 px-4">
+                                    <div class="h-px bg-slate-600 w-full relative"><i class="fa-solid fa-plane absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 text-gold text-xs"></i></div>
+                                </div>
+                                <div class="text-xl font-bold text-white text-right"><span id="cart-to">HAN</span> <span class="text-[11px] font-normal text-slate-400 block mt-0.5" id="cart-time-arrive">12:45</span></div>
+                            </div>
+                            <p class="text-xs text-slate-300 mt-2 font-medium" id="cart-airline-info">Phổ thông • Bamboo Airways</p>
+                        </div>
+
+                        <!-- Fare Breakdown -->
+                        <div class="p-5 space-y-3 relative z-10">
+                            <!-- Khối Mã giảm giá (Promo Code) -->
+                            <div class="mb-5 bg-white/5 border border-white/10 rounded-xl p-3">
+                                <label class="block text-xs font-bold text-slate-300 mb-2">Mã ưu đãi / Voucher</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="promo-code" class="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 text-xs text-white placeholder-slate-500 focus:border-[#DFBA73] focus:ring-1 focus:ring-[#DFBA73] uppercase transition-all" placeholder="Ví dụ: HAIDANGFLY">
+                                    <button type="button" onclick="applyPromo()" class="bg-white/10 hover:bg-white/20 text-[#DFBA73] px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap border border-white/10">Áp dụng</button>
+                                </div>
+                                <div id="promo-message" class="text-[11px] mt-1.5 hidden font-medium"></div>
+                            </div>
+
+                            <h4 class="font-bold text-white text-sm mb-3">Chi tiết giá</h4>
+                            
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-300" id="cart-base-label">Giá vé (1 Khách)</span>
+                                <span class="text-white font-medium" id="cart-base">1,150,000 đ</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-slate-400 pl-3 border-l-2 border-slate-600">Thuế, phí sân bay</span>
+                                <span class="text-slate-300" id="cart-tax">220,000 đ</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm text-emerald-400 mt-3 pt-3 border-t border-slate-700/60">
+                                <span class="flex items-center gap-1 font-medium"><i class="fa-solid fa-plus-circle"></i> Dịch vụ thêm</span>
+                                <span class="font-medium" id="cart-addon">0 đ</span>
+                            </div>
+                            
+                            <div id="cart-discount-row" class="hidden flex justify-between items-center text-sm text-emerald-400 mt-2">
+                                <span class="flex items-center gap-1 font-medium"><i class="fa-solid fa-tags"></i> Khuyến mãi</span>
+                                <span class="font-bold" id="cart-discount">-0 đ</span>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 bg-navy-dark -mx-5 px-5 py-4 border-t border-slate-700 shadow-inner">
+                                <div class="flex justify-between items-end">
+                                    <span class="font-bold text-white uppercase text-sm">Tổng cộng</span>
+                                    <span class="text-2xl font-bold text-gold" id="cart-total">1,370,000 <span class="text-xs font-normal">VNĐ</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="px-5 pb-5 pt-2 bg-navy-dark text-center relative z-10 rounded-b-2xl">
+                            <button type="button" onclick="proceedToPayment()" class="w-full bg-accent hover:bg-accent-hover text-white py-3.5 rounded-xl font-bold shadow-lg transition-transform transform hover:-translate-y-1 flex justify-center items-center gap-2 text-sm uppercase tracking-wide">
+                                Thanh toán an toàn <i class="fa-solid fa-lock"></i>
+                            </button>
+                            
+                            <!-- Khối Cam kết uy tín & Bảo mật (Trust Badges) -->
+                            <div class="mt-4 flex flex-col gap-2 text-[10px] text-slate-400 text-left border-t border-white/5 pt-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded border border-[#C5A059]/40 flex items-center justify-center text-[#DFBA73] bg-[#C5A059]/10 shrink-0"><i class="fa-solid fa-shield-halved text-[10px]"></i></div>
+                                    <span>Bảo mật thanh toán PCI-DSS</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded border border-[#C5A059]/40 flex items-center justify-center text-[#DFBA73] bg-[#C5A059]/10 shrink-0"><i class="fa-solid fa-plane-circle-check text-[10px]"></i></div>
+                                    <span>Đại lý vé chính hãng 100%</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded border border-[#C5A059]/40 flex items-center justify-center text-[#DFBA73] bg-[#C5A059]/10 shrink-0"><i class="fa-solid fa-headset text-[10px]"></i></div>
+                                    <span>Hỗ trợ khẩn cấp 24/7: 1900 xxxx</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================== -->
+    <!-- VIEW 2: KHUYẾN MÃI (PROMOTIONS VIEW)           -->
+    <!-- ============================================== -->
+    <main id="view-promotions" class="hidden container mx-auto px-4 lg:px-8 py-8 pb-20 min-h-screen">
+        <h2 class="text-3xl font-bold text-navy mb-8 border-b-4 border-gold inline-block pb-2">Khuyến Mãi & Ưu Đãi</h2>
+        
+        <!-- Banner Hot Deals -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div class="rounded-2xl overflow-hidden relative group cursor-pointer shadow-md">
+                <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop" class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-navy/90 to-transparent"></div>
+                <div class="absolute bottom-6 left-6 right-6 text-white">
+                    <span class="bg-accent px-3 py-1 rounded-full text-xs font-bold uppercase mb-3 inline-block">Flash Sale</span>
+                    <h3 class="text-2xl font-bold mb-2">Chào Hè Sôi Động - Giảm 30%</h3>
+                    <p class="text-sm text-slate-300">Áp dụng cho mọi chặng bay nội địa. Nhập mã ngay!</p>
+                </div>
+            </div>
+            <div class="rounded-2xl overflow-hidden relative group cursor-pointer shadow-md">
+                <img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=1000&auto=format&fit=crop" class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-navy/90 to-transparent"></div>
+                <div class="absolute bottom-6 left-6 right-6 text-white">
+                    <span class="bg-blue-600 px-3 py-1 rounded-full text-xs font-bold uppercase mb-3 inline-block">Ưu đãi thẻ</span>
+                    <h3 class="text-2xl font-bold mb-2">Thanh toán thẻ VISA - Hoàn tiền 500K</h3>
+                    <p class="text-sm text-slate-300">Cho giao dịch từ 3 triệu VNĐ vào mỗi thứ 5 hàng tuần.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bộ lọc & Thẻ Voucher -->
+        <div class="flex gap-4 mb-6 border-b border-slate-200 pb-4 overflow-x-auto hide-scrollbar">
+            <button class="px-5 py-2 bg-navy text-white rounded-full font-medium text-sm whitespace-nowrap">Tất cả ưu đãi</button>
+            <button class="px-5 py-2 bg-white border border-slate-200 text-slate-600 hover:text-navy hover:border-navy rounded-full font-medium text-sm whitespace-nowrap">Vé nội địa</button>
+            <button class="px-5 py-2 bg-white border border-slate-200 text-slate-600 hover:text-navy hover:border-navy rounded-full font-medium text-sm whitespace-nowrap">Vé quốc tế</button>
+            <button class="px-5 py-2 bg-white border border-slate-200 text-slate-600 hover:text-navy hover:border-navy rounded-full font-medium text-sm whitespace-nowrap">Combo Bay + Khách sạn</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Card Voucher 1 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex overflow-hidden group hover:shadow-soft transition-shadow">
+                <div class="bg-accent text-white p-4 w-1/3 flex flex-col justify-center items-center text-center border-r border-dashed border-white">
+                    <i class="fa-solid fa-ticket text-2xl mb-2"></i>
+                    <span class="font-bold text-xl">100K</span>
+                    <span class="text-[10px] uppercase">Giảm giá</span>
+                </div>
+                <div class="p-4 w-2/3 flex flex-col justify-between relative">
+                    <div class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-slate-50 rounded-full border-r border-slate-200"></div>
+                    <div>
+                        <h4 class="font-bold text-navy text-sm mb-1">Thành viên mới</h4>
+                        <p class="text-[11px] text-slate-500 mb-2">Giảm 100K cho đơn từ 1.5 Triệu. Áp dụng tài khoản đăng ký mới.</p>
+                        <p class="text-[10px] text-red-500 font-medium">HSD: 31/12/2023</p>
+                    </div>
+                    <div class="mt-3 flex gap-2">
+                        <div class="border border-slate-200 bg-slate-50 px-3 py-1 rounded text-xs font-bold text-slate-600 tracking-widest flex-1 text-center">HAIDANG100</div>
+                        <button class="bg-navy text-white px-3 py-1 rounded text-xs font-medium hover:bg-navy-light"><i class="fa-regular fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+            <!-- Card Voucher 2 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex overflow-hidden group hover:shadow-soft transition-shadow">
+                <div class="bg-emerald-600 text-white p-4 w-1/3 flex flex-col justify-center items-center text-center border-r border-dashed border-white">
+                    <i class="fa-solid fa-ticket text-2xl mb-2"></i>
+                    <span class="font-bold text-xl">20%</span>
+                    <span class="text-[10px] uppercase">Giảm giá</span>
+                </div>
+                <div class="p-4 w-2/3 flex flex-col justify-between relative">
+                    <div class="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-slate-50 rounded-full border-r border-slate-200"></div>
+                    <div>
+                        <h4 class="font-bold text-navy text-sm mb-1">Mùa Thu Hà Nội</h4>
+                        <p class="text-[11px] text-slate-500 mb-2">Giảm 20% (tối đa 300K) cho chặng bay đến HAN (Hà Nội).</p>
+                        <p class="text-[10px] text-red-500 font-medium">HSD: 15/11/2023</p>
+                    </div>
+                    <div class="mt-3 flex gap-2">
+                        <div class="border border-slate-200 bg-slate-50 px-3 py-1 rounded text-xs font-bold text-slate-600 tracking-widest flex-1 text-center">AUTUMNHAN</div>
+                        <button class="bg-navy text-white px-3 py-1 rounded text-xs font-medium hover:bg-navy-light"><i class="fa-regular fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================== -->
+    <!-- VIEW 3: KHÁM PHÁ (EXPLORE VIEW)                -->
+    <!-- ============================================== -->
+    <main id="view-explore" class="hidden container mx-auto px-4 lg:px-8 py-8 pb-20 min-h-screen">
+        <h2 class="text-3xl font-bold text-navy mb-8 border-b-4 border-gold inline-block pb-2">Khám Phá Điểm Đến</h2>
+        
+        <!-- Trending Destinations -->
+        <h3 class="text-xl font-bold text-navy mb-4 flex items-center gap-2"><i class="fa-solid fa-fire text-accent"></i> Điểm đến thịnh hành</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+            <div class="rounded-xl overflow-hidden relative group cursor-pointer shadow-sm">
+                <img src="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?q=80&w=600&auto=format&fit=crop" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-navy/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-4 left-4 right-4 text-white">
+                    <h4 class="font-bold text-lg">Đà Nẵng</h4>
+                    <p class="text-xs text-gold font-medium">Vé từ 590.000đ</p>
+                </div>
+            </div>
+            <div class="rounded-xl overflow-hidden relative group cursor-pointer shadow-sm">
+                <img src="https://images.unsplash.com/photo-1583417319070-4a69db38a482?q=80&w=600&auto=format&fit=crop" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-navy/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-4 left-4 right-4 text-white">
+                    <h4 class="font-bold text-lg">Phú Quốc</h4>
+                    <p class="text-xs text-gold font-medium">Vé từ 790.000đ</p>
+                </div>
+            </div>
+            <div class="rounded-xl overflow-hidden relative group cursor-pointer shadow-sm">
+                <img src="https://images.unsplash.com/photo-1588668214407-6ea9a6d8c272?q=80&w=600&auto=format&fit=crop" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-navy/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-4 left-4 right-4 text-white">
+                    <h4 class="font-bold text-lg">Hà Nội</h4>
+                    <p class="text-xs text-gold font-medium">Vé từ 890.000đ</p>
+                </div>
+            </div>
+            <div class="rounded-xl overflow-hidden relative group cursor-pointer shadow-sm">
+                <img src="https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=600&auto=format&fit=crop" class="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-navy/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-4 left-4 right-4 text-white">
+                    <h4 class="font-bold text-lg">Bangkok</h4>
+                    <p class="text-xs text-gold font-medium">Vé từ 1.250.000đ</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cẩm nang du lịch -->
+        <h3 class="text-xl font-bold text-navy mb-4 flex items-center gap-2"><i class="fa-solid fa-book-open text-emerald-600"></i> Cẩm nang du lịch Hải Đăng</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group cursor-pointer">
+                <img src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=600&auto=format&fit=crop" class="w-full h-40 object-cover">
+                <div class="p-4">
+                    <span class="text-[10px] uppercase font-bold text-emerald-600">Hướng dẫn bay</span>
+                    <h4 class="font-bold text-navy mt-1 group-hover:text-accent transition-colors">Thủ tục lên máy bay cho người mới lần đầu đi máy bay</h4>
+                    <p class="text-xs text-slate-500 mt-2 line-clamp-2">Các bước chuẩn bị hành lý, giấy tờ và quy trình check-in tại sân bay chi tiết nhất.</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group cursor-pointer">
+                <img src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=600&auto=format&fit=crop" class="w-full h-40 object-cover">
+                <div class="p-4">
+                    <span class="text-[10px] uppercase font-bold text-blue-600">Mẹo du lịch</span>
+                    <h4 class="font-bold text-navy mt-1 group-hover:text-accent transition-colors">Bí kíp săn vé máy bay 0Đ không phải ai cũng biết</h4>
+                    <p class="text-xs text-slate-500 mt-2 line-clamp-2">Thời điểm vàng để đặt vé và các thao tác nhanh giúp bạn chốt được vé siêu rẻ.</p>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group cursor-pointer">
+                <img src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=600&auto=format&fit=crop" class="w-full h-40 object-cover">
+                <div class="p-4">
+                    <span class="text-[10px] uppercase font-bold text-purple-600">Khám phá</span>
+                    <h4 class="font-bold text-navy mt-1 group-hover:text-accent transition-colors">Top 10 góc check-in sống ảo cực chất tại Dubai</h4>
+                    <p class="text-xs text-slate-500 mt-2 line-clamp-2">Đừng bỏ lỡ những góc chụp ảnh siêu đẹp này khi bạn có dịp ghé thăm tiểu vương quốc Ả Rập.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============================================== -->
+    <!-- VIEW 4: DỊCH VỤ & HỖ TRỢ (SERVICES VIEW)       -->
+    <!-- ============================================== -->
+    <main id="view-services" class="hidden container mx-auto px-4 lg:px-8 py-8 pb-20 min-h-screen">
+        <h2 class="text-3xl font-bold text-navy mb-8 border-b-4 border-gold inline-block pb-2">Dịch Vụ & Hỗ Trợ Khách Hàng</h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Tra cứu / Check-in Online -->
+            <div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 mb-6">
+                    <h3 class="text-xl font-bold text-navy mb-2"><i class="fa-solid fa-clipboard-user text-gold mr-2"></i> Tra cứu & Quản lý vé</h3>
+                    <p class="text-sm text-slate-500 mb-6">Tra cứu thông tin hành trình, đổi ngày bay, hoặc làm thủ tục trực tuyến (Check-in online).</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mã đặt chỗ (PNR) *</label>
+                            <input type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium uppercase focus:ring-2 focus:ring-navy" placeholder="Vd: ABCDEF">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Họ tên hành khách *</label>
+                            <input type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium uppercase focus:ring-2 focus:ring-navy" placeholder="Vd: NGUYEN VAN A">
+                        </div>
+                        <button class="w-full bg-navy hover:bg-navy-light text-white py-3 rounded-xl font-semibold shadow-md transition-all mt-2">Tra cứu vé ngay</button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6">
+                    <h3 class="text-base font-bold text-navy mb-3"><i class="fa-solid fa-headset text-blue-600 mr-2"></i> Tổng đài CSKH 24/7</h3>
+                    <p class="text-sm text-slate-600 mb-4">Hỗ trợ các vấn đề khẩn cấp, hoàn/hủy vé, thắc mắc giấy tờ bay.</p>
+                    <div class="flex gap-4">
+                        <a href="tel:19009999" class="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-navy flex items-center gap-2 shadow-sm hover:border-navy"><i class="fa-solid fa-phone"></i> 1900 9999</a>
+                        <button class="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-navy flex items-center gap-2 shadow-sm hover:border-navy"><i class="fa-solid fa-comments"></i> Live Chat</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dịch vụ bổ trợ -->
+            <div class="space-y-4">
+                <h3 class="text-xl font-bold text-navy mb-4"><i class="fa-solid fa-star text-gold mr-2"></i> Dịch vụ hỗ trợ đặc biệt</h3>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex gap-4 items-center">
+                    <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center shrink-0 text-navy text-xl"><i class="fa-solid fa-car"></i></div>
+                    <div>
+                        <h4 class="font-bold text-navy">Đưa đón sân bay bằng xe riêng</h4>
+                        <p class="text-xs text-slate-500 mt-1">Dịch vụ xe ô tô 4 chỗ, 7 chỗ đưa đón tận nhà - sân bay chuyên nghiệp, đúng giờ.</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex gap-4 items-center">
+                    <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center shrink-0 text-navy text-xl"><i class="fa-solid fa-mug-hot"></i></div>
+                    <div>
+                        <h4 class="font-bold text-navy">Phòng chờ thương gia sân bay</h4>
+                        <p class="text-xs text-slate-500 mt-1">Trải nghiệm không gian yên tĩnh, buffet ăn uống và ghế massage trước chuyến bay.</p>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex gap-4 items-center">
+                    <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center shrink-0 text-navy text-xl"><i class="fa-solid fa-wheelchair"></i></div>
+                    <div>
+                        <h4 class="font-bold text-navy">Hỗ trợ xe lăn / Trẻ em đi một mình</h4>
+                        <p class="text-xs text-slate-500 mt-1">Hỗ trợ đặc biệt cho hành khách hạn chế di chuyển hoặc trẻ em (UM) bay một mình an toàn.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-navy-dark text-slate-300 py-12 border-t border-slate-800">
+        <div class="container mx-auto px-4 lg:px-8 text-center text-sm text-slate-500 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="switchView('booking')">
+                <div class="relative w-8 h-8 flex items-center justify-center bg-gold/10 rounded-full border border-gold/30">
+                    <i class="fa-solid fa-tower-observation text-gold text-sm absolute"></i>
+                </div>
+                <span class="text-lg font-bold text-white tracking-wide">Hải Đăng <span class="text-gold">Fly</span></span>
+            </div>
+            <p>&copy; 2023 Hải Đăng Fly. Hỗ trợ 24/7: support@haidangfly.vn</p>
+        </div>
+    </footer>
+
+    <!-- ============================================== -->
+    <!-- AUTH MODAL (ĐĂNG NHẬP / ĐĂNG KÝ)               -->
+    <!-- ============================================== -->
+    <div id="auth-modal" class="hidden fixed inset-0 z-[100] overflow-y-auto bg-navy/80 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div class="flex min-h-screen items-center justify-center p-4 text-center">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative transform scale-95 transition-transform duration-300 text-left" id="auth-modal-content">
+                <button onclick="toggleAuthModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-navy z-10 w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full"><i class="fa-solid fa-xmark"></i></button>
+                <div class="flex text-center font-bold text-sm text-slate-500 border-b border-slate-200">
+                <button id="auth-tab-login" class="flex-1 py-4 text-navy border-b-2 border-navy bg-slate-50/50" onclick="switchAuthTab('login')">ĐĂNG NHẬP</button>
+                <button id="auth-tab-register" class="flex-1 py-4 hover:text-navy hover:bg-slate-50 border-b-2 border-transparent" onclick="switchAuthTab('register')">ĐĂNG KÝ</button>
+            </div>
+            <!-- FORM ĐĂNG NHẬP -->
+            <form id="form-login" class="p-6 md:p-8 block" onsubmit="handleLogin(event)">
+                <h3 class="text-2xl font-bold text-navy mb-6 text-center">Chào mừng trở lại!</h3>
+                <div class="space-y-4">
+                    <div><input type="text" id="login-email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="Nhập email/SĐT"></div>
+                    <div><input type="password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="Mật khẩu"></div>
+                    <button type="submit" class="w-full bg-navy text-white font-bold py-3 rounded-xl shadow-lg hover:bg-navy-light transition-colors mt-2">Đăng Nhập</button>
+                </div>
+            </form>
+            <!-- FORM ĐĂNG KÝ -->
+            <form id="form-register" class="p-6 md:p-8 hidden" onsubmit="handleRegister(event)">
+                <div class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-6 text-center"><p class="text-xs font-bold text-accent"><i class="fa-solid fa-gift mr-1"></i> Đăng ký thành viên nhận ngay voucher 100K!</p></div>
+                <div class="space-y-4">
+                    <div><input type="text" id="reg-name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="Họ và tên"></div>
+                    <div><input type="email" id="reg-email" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="Email"></div>
+                    <div><input type="password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 text-sm focus:ring-2 focus:ring-navy" placeholder="Mật khẩu"></div>
+                    <button type="submit" class="w-full bg-gold text-navy font-bold py-3 rounded-xl shadow-lg hover:bg-yellow-400 transition-colors mt-2">Đăng Ký Tài Khoản</button>
+                </div>
+            </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- PAYMENT & SUCCESS MODALS                       -->
+    <!-- ============================================== -->
+    
+    <!-- Payment QR Modal -->
+    <div id="payment-modal" class="hidden fixed inset-0 z-[200] overflow-y-auto bg-navy/90 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden relative p-8 text-center transform scale-95 transition-transform duration-300" id="payment-modal-content">
+                <h3 class="text-xl font-bold text-navy mb-1">Thanh toán mã QR</h3>
+                <p class="text-xs text-slate-500 mb-6">Thời gian giao dịch còn <span id="qr-timer" class="font-bold text-red-500">10:00</span></p>
+                
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 shadow-inner">
+                    <img id="vietqr-image" src="" alt="QR Code" class="mx-auto w-48 h-48 mb-4 rounded-xl mix-blend-multiply border border-slate-200 bg-white p-2 shadow-sm">
+                    <p class="text-sm text-slate-500">Ngân hàng: <span class="font-bold text-navy">MB Bank</span></p>
+                    <p class="text-sm text-slate-500">Số tài khoản: <span class="font-bold text-navy">0987654321</span></p>
+                    <p class="text-sm text-slate-500 mb-2">Nội dung: <span class="font-bold text-navy bg-yellow-100 px-1 rounded">HAIDANGFLY</span></p>
+                    <div class="mt-3 py-3 bg-navy rounded-xl text-white">
+                        <p class="text-xs text-slate-300 mb-1">Tổng thanh toán</p>
+                        <p class="text-2xl font-bold text-gold" id="payment-amount">0 VNĐ</p>
+                    </div>
+                </div>
+                
+                <p class="text-[11px] text-slate-500 italic mb-6">Mở ứng dụng ngân hàng bất kỳ để quét mã.<br>Đây là luồng thanh toán demo.</p>
+                
+                <div class="flex gap-3">
+                    <button onclick="closePaymentModal()" class="flex-1 bg-slate-100 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-slate-200">Hủy</button>
+                    <button onclick="mockSuccess()" class="flex-[2] bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/30">Đã chuyển</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="hidden fixed inset-0 z-[250] overflow-y-auto bg-navy/95 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 text-center relative overflow-hidden transform scale-95 transition-transform duration-300" id="success-modal-content">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
+            <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500 text-4xl shadow-inner">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-navy mb-2">Đặt vé thành công!</h3>
+            <p class="text-sm text-slate-500 mb-6">Mã đặt chỗ: <span class="font-bold text-navy text-lg bg-slate-100 px-3 py-1.5 rounded-lg tracking-widest border border-slate-200" id="success-pnr">HDF-12345</span></p>
+            
+            <div class="text-left bg-slate-50 border border-slate-200 rounded-xl p-5 mb-8 space-y-3 text-sm">
+                <div class="flex justify-between border-b border-slate-200 pb-2"><span class="text-slate-500">Hành khách:</span><span class="font-bold text-navy uppercase" id="success-name">Nguyễn Văn A</span></div>
+                <div class="flex justify-between border-b border-slate-200 pb-2"><span class="text-slate-500">Hành trình:</span><span class="font-bold text-navy" id="success-route">SGN ➔ HAN</span></div>
+                <div class="flex justify-between border-b border-slate-200 pb-2"><span class="text-slate-500">Giờ bay:</span><span class="font-bold text-navy" id="success-time">24/10/2023 - 08:00</span></div>
+                <div class="flex justify-between pt-1"><span class="text-slate-500">Tổng thanh toán:</span><span class="font-bold text-accent text-lg" id="success-total">0 VNĐ</span></div>
+            </div>
+            
+            <button class="w-full bg-navy text-white font-bold py-3.5 rounded-xl shadow-lg shadow-navy/30 hover:bg-navy-light mb-3 flex justify-center items-center gap-2"><i class="fa-solid fa-download"></i> Tải vé điện tử (PDF)</button>
+            <button onclick="window.location.reload()" class="w-full bg-white border-2 border-slate-200 text-slate-600 font-bold py-3.5 rounded-xl hover:bg-slate-50">Về trang chủ</button>
+        </div>
+        </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- JAVASCRIPT LOGIC CỐT LÕI                       -->
+    <!-- ============================================== -->
+    <script>
+        // --- STATE MANAGEMENT ---
+        let state = {
+            passengers: { adults: 1, children: 0, infants: 0 },
+            totalPrice: 0,
+            route: { from: 'SGN', to: 'HAN' },
+            promoApplied: false
+        };
+
+        // --- AUTH LOGIC ---
+        function checkAuth() {
+            const userStr = localStorage.getItem('hdf_user');
+            const authBtns = document.getElementById('auth-buttons');
+            const userMenu = document.getElementById('user-menu');
+            
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                authBtns.classList.add('hidden');
+                userMenu.classList.remove('hidden');
+                document.getElementById('user-name-display').innerText = user.name;
+                document.getElementById('user-avatar').innerText = user.name.charAt(0).toUpperCase();
+                
+                // Prefill form
+                const buyerInput = document.getElementById('buyer-name');
+                if(buyerInput) buyerInput.value = user.name;
+            } else {
+                authBtns.classList.remove('hidden');
+                userMenu.classList.add('hidden');
+            }
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            localStorage.setItem('hdf_user', JSON.stringify({ name, email }));
+            toggleAuthModal(false);
+            checkAuth();
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const name = email.split('@')[0]; // Mock name from email
+            localStorage.setItem('hdf_user', JSON.stringify({ name: name, email: email }));
+            toggleAuthModal(false);
+            checkAuth();
+        }
+
+        function logout() {
+            localStorage.removeItem('hdf_user');
+            checkAuth();
+        }
+
+        // --- UI TOGGLES ---
+        function toggleDropdown(id) {
+            document.querySelectorAll('.absolute.z-50').forEach(el => {
+                if(el.id !== id && !el.classList.contains('hidden') && el.id !== 'user-menu') el.classList.add('hidden');
+            });
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        function selectAirport(type, value) {
+            const code = value.match(/\(([^)]+)\)/)[1];
+            document.getElementById(`input-${type}`).value = value;
+            document.getElementById(`${type}-dropdown`).classList.add('hidden');
+            
+            // Update UI
+            if(type === 'from') state.route.from = code;
+            if(type === 'to') state.route.to = code;
+            
+            document.getElementById('result-title').innerHTML = `${state.route.from} <i class="fa-solid fa-arrow-right text-[16px] text-slate-400"></i> ${state.route.to}`;
+            
+            // update cards
+            document.querySelectorAll(`.flight-${type}-label`).forEach(el => el.innerText = code);
+            document.getElementById(`cart-${type}`).innerText = code;
+        }
+
+        document.addEventListener('click', (e) => {
+            if(!e.target.closest('#from-container')) document.getElementById('from-dropdown').classList.add('hidden');
+            if(!e.target.closest('#to-container')) document.getElementById('to-dropdown').classList.add('hidden');
+            if(!e.target.closest('#passengerContainer')) document.getElementById('passengerDropdown').classList.add('hidden');
+        });
+
+        // --- PASSENGER LOGIC ---
+        function updatePassCount(type, delta) {
+            let newVal = state.passengers[type] + delta;
+            if (type === 'adults' && (newVal < 1 || newVal > 9)) return;
+            if (type !== 'adults' && newVal < 0) return;
+            
+            state.passengers[type] = newVal;
+            document.getElementById(`count-${type}`).innerText = newVal;
+        }
+
+        function confirmPassengers() {
+            document.getElementById('passengerDropdown').classList.add('hidden');
+            let text = `${state.passengers.adults} Người lớn`;
+            if (state.passengers.children > 0) text += `, ${state.passengers.children} Trẻ em`;
+            if (state.passengers.infants > 0) text += `, ${state.passengers.infants} Em bé`;
+            document.getElementById('passengerSummary').innerText = text;
+            updateCart();
+        }
+
+        // --- CART & PRICE LOGIC ---
+        function updateCart() {
+            // Count pax (adult + children pay full for demo simplicity, infants free)
+            const payPax = state.passengers.adults + state.passengers.children;
+            
+            const selectedFlight = document.querySelector('input[name="flight_select"]:checked');
+            if(!selectedFlight) return;
+            
+            const basePrice = parseInt(selectedFlight.dataset.price);
+            const airline = selectedFlight.dataset.airline;
+            const fClass = selectedFlight.dataset.class;
+            
+            // Addons (assuming addons are per booking for this demo, or multiply by pax if needed)
+            let addonTotal = 0;
+            const bg = document.getElementById('addon-baggage').value;
+            if(bg !== "0") addonTotal += parseInt(bg);
+            const st = document.getElementById('addon-seat').value;
+            if(st !== "0") addonTotal += parseInt(st);
+            if(document.getElementById('addon-insurance').checked) addonTotal += 99000;
+
+            // Calc
+            const taxFeesPerPax = (basePrice * 0.08) + 120000 + 100000; // Tax + Sec + Airport
+            
+            const totalBase = basePrice * payPax;
+            const totalTaxFees = taxFeesPerPax * payPax;
+            let finalTotal = totalBase + totalTaxFees + addonTotal;
+            
+            // Promo Logic
+            let discountAmount = 0;
+            if (state.promoApplied) {
+                discountAmount = 100000;
+                finalTotal -= discountAmount;
+                document.getElementById('cart-discount-row').classList.remove('hidden');
+                document.getElementById('cart-discount-row').classList.add('flex');
+                document.getElementById('cart-discount').innerText = '-' + discountAmount.toLocaleString('vi-VN') + ' đ';
+            } else {
+                document.getElementById('cart-discount-row').classList.add('hidden');
+                document.getElementById('cart-discount-row').classList.remove('flex');
+            }
+            
+            state.totalPrice = finalTotal;
+
+            // DOM
+            document.getElementById('cart-base-label').innerText = `Giá vé (${payPax} Khách)`;
+            document.getElementById('cart-base').innerText = totalBase.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('cart-tax').innerText = totalTaxFees.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('cart-addon').innerText = addonTotal.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('cart-total').innerHTML = `${finalTotal.toLocaleString('vi-VN')} <span class="text-xs font-normal">VNĐ</span>`;
+            
+            const times = selectedFlight.dataset.time.split(' - ');
+            document.getElementById('cart-time-depart').innerText = times[0];
+            document.getElementById('cart-time-arrive').innerText = times[1];
+            document.getElementById('cart-airline-info').innerHTML = `${fClass === 'Thương gia' ? '<i class="fa-solid fa-crown text-gold mr-1"></i>' : ''} ${fClass} • ${airline}`;
+        }
+
+        function applyPromo() {
+            const code = document.getElementById('promo-code').value.toUpperCase().trim();
+            const msg = document.getElementById('promo-message');
+            msg.classList.remove('hidden');
+            if (code === 'HAIDANG100') {
+                state.promoApplied = true;
+                msg.innerHTML = '<i class="fa-solid fa-check-circle"></i> Áp dụng thành công voucher giảm 100K';
+                msg.className = 'text-[11px] mt-1.5 font-medium text-emerald-400';
+                updateCart();
+            } else if (code === '') {
+                state.promoApplied = false;
+                msg.classList.add('hidden');
+                updateCart();
+            } else {
+                state.promoApplied = false;
+                msg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Mã ưu đãi không hợp lệ hoặc đã hết hạn';
+                msg.className = 'text-[11px] mt-1.5 font-medium text-red-400';
+                updateCart();
+            }
+        }
+        
+        function toggleVATForm() {
+            const isChecked = document.getElementById('check-vat').checked;
+            const form = document.getElementById('vat-form');
+            if (isChecked) {
+                form.classList.remove('hidden');
+            } else {
+                form.classList.add('hidden');
+            }
+        }
+
+        // --- SEARCH ACTIONS ---
+        function searchFlights() {
+            const container = document.getElementById('search-results-area');
+            container.style.opacity = '0.3';
+            setTimeout(() => {
+                container.style.opacity = '1';
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 600);
+        }
+
+        // --- PAYMENT & SUCCESS FLOW ---
+        let qrTimerInt;
+        function proceedToPayment() {
+            const modal = document.getElementById('payment-modal');
+            const content = document.getElementById('payment-modal-content');
+            
+            // Setup QR
+            const amt = state.totalPrice;
+            document.getElementById('vietqr-image').src = `https://img.vietqr.io/image/MB-0987654321-compact2.png?amount=${amt}&addInfo=HAIDANGFLY%20VE%20MAY%20BAY`;
+            document.getElementById('payment-amount').innerText = amt.toLocaleString('vi-VN') + ' VNĐ';
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); }, 10);
+            
+            // Timer
+            let timeLeft = 600;
+            clearInterval(qrTimerInt);
+            qrTimerInt = setInterval(() => {
+                timeLeft--;
+                const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                const s = (timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById('qr-timer').innerText = `${m}:${s}`;
+                if(timeLeft <= 0) clearInterval(qrTimerInt);
+            }, 1000);
+        }
+
+        function closePaymentModal() {
+            clearInterval(qrTimerInt);
+            const modal = document.getElementById('payment-modal');
+            modal.classList.add('opacity-0');
+            document.getElementById('payment-modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+               async function mockSuccess() {
+            // [MỚI] GỌI API ĐỂ LƯU VÉ VÀO DATABASE ADMIN
+            const buyerName = document.getElementById('buyer-name').value || 'Khách Vãng Lai';
+            const phone = document.querySelector('input[type="tel"]').value || '0901234567';
+            const selectedFlight = document.querySelector('input[name="flight_select"]:checked');
+            
+            let flightId = 1;
+            if (selectedFlight && selectedFlight.dataset.flight === 'QH-112') flightId = 2;
+
+            try {
+                await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flight_id: flightId,
+                        passenger_name: buyerName,
+                        passenger_phone: phone,
+                        seat_type: selectedFlight ? (selectedFlight.dataset.class === 'Thương gia' ? 'business' : 'economy') : 'economy',
+                        total_price: state.totalPrice
+                    })
+                });
+            } catch (err) {}
+
+            closePaymentModal();
+            setTimeout(() => {
+                const modal = document.getElementById('success-modal');
+                const content = document.getElementById('success-modal-content');
+                const buyer = document.getElementById('buyer-name').value || (state.currentUser ? state.currentUser.name : 'NGUYEN VAN A');
+                document.getElementById('success-name').innerText = buyer;
+                document.getElementById('success-pnr').innerText = 'HDF-' + Math.floor(10000 + Math.random() * 90000);
+                document.getElementById('success-route').innerText = `${state.route.from} ➔ ${state.route.to}`;
+                document.getElementById('success-total').innerText = state.totalPrice.toLocaleString('vi-VN') + ' VNĐ';
+                document.getElementById('success-time').innerText = `24/10/2023 - ${selectedFlight ? selectedFlight.dataset.time.split(' - ')[0] : '08:00'}`;
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); }, 10);
+            }, 300);
+        }
+        // --- AUTH MODAL HELPERS (FROM PREV) ---
+        function toggleAuthModal(show, tab = 'login') {
+            const modal = document.getElementById('auth-modal');
+            const content = document.getElementById('auth-modal-content');
+            if(show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); }, 10);
+                switchAuthTab(tab);
+            } else {
+                modal.classList.add('opacity-0');
+                content.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+        function switchAuthTab(tab) {
+            const tLogin = document.getElementById('auth-tab-login'), tReg = document.getElementById('auth-tab-register');
+            const fLogin = document.getElementById('form-login'), fReg = document.getElementById('form-register');
+            if(tab === 'login') {
+                tLogin.classList.add('text-navy','border-navy','bg-slate-50/50'); tReg.classList.remove('text-navy','border-navy','bg-slate-50/50'); tReg.classList.add('border-transparent');
+                fLogin.classList.replace('hidden','block'); fReg.classList.replace('block','hidden');
+            } else {
+                tReg.classList.add('text-navy','border-navy','bg-slate-50/50'); tLogin.classList.remove('text-navy','border-navy','bg-slate-50/50'); tLogin.classList.add('border-transparent');
+                fReg.classList.replace('hidden','block'); fLogin.classList.replace('block','hidden');
+            }
+        }
+        function switchView(viewId) {
+            // Hide all views
+            document.getElementById('view-booking').classList.add('hidden');
+            document.getElementById('view-booking').classList.remove('block');
+            document.getElementById('view-promotions').classList.add('hidden');
+            document.getElementById('view-promotions').classList.remove('block');
+            document.getElementById('view-explore').classList.add('hidden');
+            document.getElementById('view-explore').classList.remove('block');
+            document.getElementById('view-services').classList.add('hidden');
+            document.getElementById('view-services').classList.remove('block');
+            
+            // Show selected view
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById(`view-${viewId}`).classList.add('block');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.target === viewId) {
+                    btn.classList.add('text-gold', 'border-gold');
+                    btn.classList.remove('border-transparent', 'hover:text-gold');
+                } else {
+                    btn.classList.remove('text-gold', 'border-gold');
+                    btn.classList.add('border-transparent', 'hover:text-gold');
+                }
+            });
+        }
+
+        // INIT
+        // --- OTHERS ---
+        function startReservationTimer() {
+            let time = 600; // 10 minutes
+            const display = document.getElementById('reservation-timer');
+            const timer = setInterval(() => {
+                let minutes = parseInt(time / 60, 10);
+                let seconds = parseInt(time % 60, 10);
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+                if (display) display.textContent = minutes + ":" + seconds;
+                if (--time < 0) {
+                    clearInterval(timer);
+                    if(display) display.textContent = "00:00";
+                    alert("Thời gian giữ chỗ đã hết, vui lòng tìm kiếm lại chuyến bay.");
+                }
+            }, 1000);
+        }
+
+        // --- FLIGHT POLICY MODAL ---
+        function openFlightModal() {
+            document.getElementById('flight-policy-modal').classList.remove('hidden');
+        }
+        function closeFlightModal() {
+            document.getElementById('flight-policy-modal').classList.add('hidden');
+        }
+        function switchModalTab(tabId) {
+            document.getElementById('tab-hanhtrinh').classList.add('hidden');
+            document.getElementById('tab-dieukien').classList.add('hidden');
+            document.getElementById('tab-bando').classList.add('hidden');
+            document.getElementById('btn-tab-hanhtrinh').classList.remove('text-[#DFBA73]', 'border-[#DFBA73]');
+            document.getElementById('btn-tab-dieukien').classList.remove('text-[#DFBA73]', 'border-[#DFBA73]');
+            document.getElementById('btn-tab-bando').classList.remove('text-[#DFBA73]', 'border-[#DFBA73]');
+            
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.getElementById('btn-tab-' + tabId).classList.add('text-[#DFBA73]', 'border-[#DFBA73]');
+
+            if (tabId === 'bando') {
+                initFlightMap();
+            }
+        }
+
+        let mapInitialized = false;
+        function initFlightMap() {
+            if (mapInitialized) {
+                setTimeout(() => { window.flightMap.invalidateSize(); }, 100);
+                return;
+            }
+            
+            // SGN (10.8167, 106.6667) to HAN (21.2187, 105.8042)
+            const map = L.map('flight-map-container').setView([16.0, 106.0], 5);
+            window.flightMap = map;
+            
+            // OSM Default Tile Layer with CSS filter for Dark Luxury Theme
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            const sgnCoords = [10.8167, 106.6667];
+            const hanCoords = [21.2187, 105.8042];
+
+            // Add markers
+            const iconOptions = {
+                color: '#DFBA73',
+                fillColor: '#C5A059',
+                fillOpacity: 1,
+                radius: 6,
+                weight: 2
+            };
+            L.circleMarker(sgnCoords, iconOptions).addTo(map).bindPopup("<b>SGN</b><br>Tân Sơn Nhất");
+            L.circleMarker(hanCoords, iconOptions).addTo(map).bindPopup("<b>HAN</b><br>Nội Bài");
+
+            // Draw curved line using a custom logic or simply a straight polyline for now (to avoid external plugins)
+            const latlngs = [sgnCoords, hanCoords];
+            
+            // Generate points for a smooth Bezier Curve
+            const midPoint = [
+                (sgnCoords[0] + hanCoords[0]) / 2,
+                (sgnCoords[1] + hanCoords[1]) / 2 + 5 // Control point offset
+            ];
+            
+            const curvedPoints = [];
+            for (let t = 0; t <= 1; t += 0.05) {
+                const lat = (1 - t) * (1 - t) * sgnCoords[0] + 2 * (1 - t) * t * midPoint[0] + t * t * hanCoords[0];
+                const lng = (1 - t) * (1 - t) * sgnCoords[1] + 2 * (1 - t) * t * midPoint[1] + t * t * hanCoords[1];
+                curvedPoints.push([lat, lng]);
+            }
+            curvedPoints.push(hanCoords);
+
+            const polyline = L.polyline(curvedPoints, {
+                color: '#DFBA73',
+                weight: 3,
+                dashArray: '5, 10',
+                opacity: 0.8
+            }).addTo(map);
+
+            map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+            mapInitialized = true;
+            
+            // Ensure map fits correctly after tab display
+            setTimeout(() => { map.invalidateSize(); }, 100);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCart();
+            checkAuthOnLoad();
+            startReservationTimer();
+        });
+    </script>
+    
+    <!-- Flight Policy Modal -->
+    <div id="flight-policy-modal" class="hidden fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-sm">
+        <div class="flex min-h-screen items-center justify-center p-4 text-left">
+            <div class="bg-navy rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-[#DFBA73]/20 flex flex-col max-h-[90vh]">
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-[#DFBA73]/20 flex justify-between items-center bg-[#050505]">
+                    <h3 class="text-xl font-bold text-[#DFBA73]">Chi tiết chuyến bay & Điều kiện vé</h3>
+                    <button onclick="closeFlightModal()" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-[#DFBA73]/10 bg-navy">
+                <button id="btn-tab-hanhtrinh" onclick="switchModalTab('hanhtrinh')" class="flex-1 py-3 text-[11px] sm:text-sm font-bold text-[#DFBA73] border-b-2 border-[#DFBA73] hover:text-[#DFBA73] transition-colors">HÀNH TRÌNH</button>
+                <button id="btn-tab-dieukien" onclick="switchModalTab('dieukien')" class="flex-1 py-3 text-[11px] sm:text-sm font-bold text-slate-400 border-b-2 border-transparent hover:text-[#DFBA73] transition-colors">ĐIỀU KIỆN VÉ</button>
+                <button id="btn-tab-bando" onclick="switchModalTab('bando')" class="flex-1 py-3 text-[11px] sm:text-sm font-bold text-slate-400 border-b-2 border-transparent hover:text-[#DFBA73] transition-colors">BẢN ĐỒ ĐƯỜNG BAY</button>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-6 overflow-y-auto text-sm text-slate-300">
+                <!-- Hành trình -->
+                <div id="tab-hanhtrinh" class="space-y-6">
+                    <div class="flex gap-4 relative">
+                        <div class="w-4 h-4 rounded-full bg-[#DFBA73] mt-1 shrink-0 z-10 relative"></div>
+                        <div class="absolute top-5 left-1.5 w-0.5 h-16 bg-slate-700 z-0"></div>
+                        <div>
+                            <p class="text-lg font-bold text-white">Sân bay Tân Sơn Nhất (SGN)</p>
+                            <p class="text-slate-400">10:30 • Nhà ga T1 (Quốc nội)</p>
+                        </div>
+                    </div>
+                    <div class="ml-8 border border-white/5 bg-white/5 rounded-lg p-3 flex items-center gap-3">
+                        <i class="fa-solid fa-plane text-[#DFBA73]"></i>
+                        <div>
+                            <p class="font-bold text-white">Bamboo Airways (QH-112)</p>
+                            <p class="text-xs text-slate-400">Airbus A321 • Thời gian bay: 2h 15m</p>
+                        </div>
+                        <div class="ml-auto flex gap-2 text-slate-400 text-xs">
+                            <i class="fa-solid fa-wifi" title="Có Wi-Fi"></i>
+                            <i class="fa-solid fa-plug" title="Có cổng sạc"></i>
+                            <i class="fa-solid fa-utensils" title="Phục vụ suất ăn"></i>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 relative">
+                        <div class="w-4 h-4 rounded-full border-2 border-[#DFBA73] bg-navy mt-1 shrink-0 z-10"></div>
+                        <div>
+                            <p class="text-lg font-bold text-white">Sân bay Nội Bài (HAN)</p>
+                            <p class="text-slate-400">12:45 • Nhà ga T1 (Quốc nội)</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Điều kiện vé -->
+                <div id="tab-dieukien" class="hidden space-y-4">
+                    <div class="grid grid-cols-3 text-xs uppercase font-bold text-slate-400 mb-2 border-b border-white/5 pb-2">
+                        <div>Chính sách</div>
+                        <div class="text-center">Phổ thông</div>
+                        <div class="text-center text-[#DFBA73]">Thương gia <i class="fa-solid fa-crown text-[10px]"></i></div>
+                    </div>
+                    <div class="grid grid-cols-3 border-b border-white/5 pb-3">
+                        <div class="font-bold text-white">Hành lý xách tay</div>
+                        <div class="text-center">7 kg</div>
+                        <div class="text-center font-bold text-[#DFBA73]">14 kg (2 kiện)</div>
+                    </div>
+                    <div class="grid grid-cols-3 border-b border-white/5 pb-3">
+                        <div class="font-bold text-white">Hành lý ký gửi</div>
+                        <div class="text-center">20 kg</div>
+                        <div class="text-center font-bold text-[#DFBA73]">40 kg</div>
+                    </div>
+                    <div class="grid grid-cols-3 border-b border-white/5 pb-3">
+                        <div class="font-bold text-white">Đổi vé / Đổi ngày</div>
+                        <div class="text-center">Thu phí 350K + chênh lệch</div>
+                        <div class="text-center font-bold text-[#DFBA73]">Miễn phí đổi</div>
+                    </div>
+                    <div class="grid grid-cols-3 pb-3">
+                        <div class="font-bold text-white">Hoàn vé</div>
+                        <div class="text-center text-red-400">Không hỗ trợ</div>
+                        <div class="text-center font-bold text-[#DFBA73]">Thu phí 300K</div>
+                    </div>
+                </div>
+
+                <!-- Bản đồ đường bay -->
+                <div id="tab-bando" class="hidden h-[300px] sm:h-[400px] w-full rounded-xl overflow-hidden relative border border-white/10">
+                    <div id="flight-map-container" class="w-full h-full z-0"></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-[#DFBA73]/10 bg-[#050505] text-right">
+                <button onclick="closeFlightModal()" class="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg font-bold transition-colors">Đóng</button>
+            </div>
+        </div>
+        </div>
+    </div>
+        <!-- ========================================== -->
+    <!-- THÊM TÍNH NĂNG LIÊN HỆ CHO ĐỒ ÁN           -->
+    <!-- ========================================== -->
+    <!-- Nút Gọi Hỗ Trợ Nổi Góc Phải -->
+    <button onclick="document.getElementById('contact-modal-doan').classList.remove('hidden')" class="fixed bottom-6 right-6 bg-[#DFBA73] text-[#0f172a] w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition z-50">
+        <i class="fa-solid fa-headset"></i>
+    </button>
+
+    <!-- Form Liên Hệ Modal -->
+    <div id="contact-modal-doan" class="hidden fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 relative">
+            <button onclick="document.getElementById('contact-modal-doan').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-black"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h3 class="text-xl font-bold text-[#0f172a] mb-5"><i class="fa-solid fa-envelope text-[#DFBA73] mr-2"></i>Gửi Góp Ý / Liên Hệ</h3>
+            
+            <input type="text" id="contact-name" placeholder="Họ tên của bạn *" class="w-full border border-slate-300 p-3 rounded-lg mb-3 focus:outline-none focus:border-[#DFBA73]">
+            <input type="email" id="contact-email" placeholder="Email liên hệ" class="w-full border border-slate-300 p-3 rounded-lg mb-3 focus:outline-none focus:border-[#DFBA73]">
+            <input type="text" id="contact-subject" placeholder="Tiêu đề *" class="w-full border border-slate-300 p-3 rounded-lg mb-3 focus:outline-none focus:border-[#DFBA73]">
+            <textarea id="contact-message" placeholder="Nội dung cần hỗ trợ..." class="w-full border border-slate-300 p-3 rounded-lg mb-4 h-24 focus:outline-none focus:border-[#DFBA73]"></textarea>
+            
+            <button onclick="submitContactForm()" class="w-full bg-[#0f172a] text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition shadow-lg">Gửi Yêu Cầu</button>
+        </div>
+    </div>
+
+    <script>
+    async function submitContactForm() {
+        const data = {
+            name: document.getElementById('contact-name').value,
+            email: document.getElementById('contact-email').value,
+            subject: document.getElementById('contact-subject').value,
+            message: document.getElementById('contact-message').value
+        };
+        
+        if(!data.name || !data.subject || !data.message) {
+            return alert("Vui lòng nhập đủ Họ tên, Tiêu đề và Nội dung!");
+        }
+        
+        try {
+            await fetch('/api/contacts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            alert("Cảm ơn bạn! Đã gửi lời góp ý thành công tới Quản trị viên.");
+            document.getElementById('contact-modal-doan').classList.add('hidden');
+            
+            // Xóa form sau khi gửi
+            document.getElementById('contact-name').value = '';
+            document.getElementById('contact-email').value = '';
+            document.getElementById('contact-subject').value = '';
+            document.getElementById('contact-message').value = '';
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    </script>
+        <!-- ========================================== -->
+    <!-- CHATBOT AI TRỢ LÝ ẢO                       -->
+    <!-- ========================================== -->
+    <!-- Nút mở Chatbot -->
+    <button onclick="document.getElementById('ai-chatbot').classList.toggle('hidden')" class="fixed bottom-6 left-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition z-50">
+        <i class="fa-solid fa-robot"></i>
+    </button>
+
+    <!-- Khung Chatbot -->
+    <div id="ai-chatbot" class="hidden fixed bottom-24 left-6 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50 flex flex-col h-96">
+        <div class="bg-blue-600 text-white p-4 font-bold flex justify-between items-center">
+            <span><i class="fa-solid fa-robot mr-2"></i> Trợ lý AI Hải Đăng</span>
+            <button onclick="document.getElementById('ai-chatbot').classList.add('hidden')" class="hover:text-gray-200"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50 text-sm">
+            <div class="bg-blue-100 text-blue-900 p-3 rounded-xl rounded-tl-none w-10/12">
+                Xin chào! Tôi là Trợ lý AI của Hải Đăng Fly. Tôi có thể giải đáp thắc mắc gì cho chuyến đi của bạn?
+            </div>
+        </div>
+        
+        <div class="p-3 border-t bg-white flex gap-2">
+            <input type="text" id="chat-input" placeholder="Nhập câu hỏi..." class="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:border-blue-600" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <script>
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const msgText = input.value.trim();
+        if(!msgText) return;
+        
+        const chatBox = document.getElementById('chat-messages');
+        
+        // Hiện tin nhắn của khách (bong bóng bên phải)
+        chatBox.innerHTML += `<div class="bg-[#0f172a] text-white p-3 rounded-xl rounded-tr-none w-10/12 ml-auto shadow-md">${msgText}</div>`;
+        input.value = '';
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        // AI giả lập đang suy nghĩ (hiện dấu ...)
+        const thinkingId = 'think-' + Date.now();
+        setTimeout(() => {
+            chatBox.innerHTML += `<div id="${thinkingId}" class="bg-blue-100 text-blue-900 p-3 rounded-xl rounded-tl-none w-fit"><i class="fa-solid fa-ellipsis fa-fade text-lg"></i></div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // AI trả lời sau 1.5 giây
+            setTimeout(() => {
+                document.getElementById(thinkingId).remove();
+                let aiResponse = "Xin lỗi, câu hỏi này hơi khó. Bạn có thể gửi Form Hỗ trợ hoặc gọi Hotline 1900 xxxx để nhân viên tư vấn nhé!";
+                const lowerMsg = msgText.toLowerCase();
+                
+                // Thuật toán nhận diện từ khóa của AI
+                if(lowerMsg.includes("đổi chuyến") || lowerMsg.includes("đổi vé")) {
+                    aiResponse = "💡 Để thay đổi chuyến bay, bạn vui lòng mang mã vé ra quầy. Phí đổi vé là 350.000đ (Được miễn phí đối với vé Hạng Thương Gia).";
+                } else if(lowerMsg.includes("hành lý")) {
+                    aiResponse = "🎒 Vé phổ thông được miễn phí 7kg xách tay và 20kg ký gửi. Vé Thương gia được 14kg xách tay và 40kg ký gửi ạ.";
+                } else if(lowerMsg.includes("giá") || lowerMsg.includes("bao nhiêu") || lowerMsg.includes("tiền")) {
+                    aiResponse = "💰 Giá vé đi Hà Nội - Sài Gòn hiện tại đang có ưu đãi chỉ từ 890.000đ. Bạn hãy sử dụng bộ lọc tìm kiếm trên màn hình nhé!";
+                } else if(lowerMsg.includes("chào") || lowerMsg.includes("hi") || lowerMsg.includes("hello")) {
+                    aiResponse = "Dạ xin chào! Rất vui được hỗ trợ bạn đặt vé máy bay Hải Đăng Fly.";
+                }
+                
+                // In câu trả lời của AI ra màn hình
+                chatBox.innerHTML += `<div class="bg-blue-100 text-blue-900 p-3 rounded-xl rounded-tl-none w-10/12 shadow-sm border border-blue-200">${aiResponse}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 1500);
+        }, 500);
+    }
+    </script>
+</body>
+</html>
